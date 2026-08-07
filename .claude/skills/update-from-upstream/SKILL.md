@@ -69,7 +69,17 @@ Whenever source changes alter updating, building, signing, installation paths, b
 
 Run focused tests for every retained fork change, then the appropriate broader checks. Treat failures in changed paths as real until proven otherwise; report unrelated baseline failures separately.
 
-Do not deploy a build that failed its required checks. Before a durable managed-checkout deployment, the tested branch must be committed and available to that checkout; ask before committing or pushing.
+For Desktop work, refresh the locked JavaScript dependencies with `npm ci` at the repository root before classifying missing-module or missing-export type errors as baseline, then rerun the check. The packaging command performs the same deterministic install.
+
+Before pushing a Desktop change, prove the authoring worktree packages successfully:
+
+```bash
+uv run --no-sync ./hermes desktop --build-only --force-build
+```
+
+This dirty-worktree artifact is build proof only, not the durable install. After tests and packaging pass, commit only the reviewed files, confirm the worktree is clean, and verify that `origin` is the user's fork and the authenticated GitHub viewer has write access before pushing. Never push without explicit approval.
+
+Do not deploy a build that failed its required checks. Before a durable managed-checkout deployment, the tested commit must be available to that checkout.
 
 ## 5. Decide the deploy surface
 
@@ -133,6 +143,8 @@ Clear only the quarantine attribute if present, register the final bundle with L
 - strict code-sign verification still passes after installation;
 - the app connects in its prior local/remote mode;
 - focused UI behavior and a native test notification work.
+
+Do not request new Accessibility, Screen Recording, Automation, or microphone permission solely to automate verification. Prefer existing tests plus user-confirmed live behavior when UI inspection lacks permission.
 
 Remove any temporary staging or backup bundle only after verification.
 

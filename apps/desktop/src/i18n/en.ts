@@ -255,6 +255,7 @@ export const en: Translations = {
       'workspace.openFolder': 'Open folder as project',
       'composer.focus': 'Focus composer',
       'composer.modelPicker': 'Open model picker',
+      'composer.dictation': 'Start / stop voice dictation',
       'composer.voice': 'Start / stop voice conversation',
       'view.toggleSidebar': 'Toggle sessions sidebar',
       'view.toggleRightSidebar': 'Toggle file browser',

@@ -60,6 +60,10 @@ export const KEYBIND_ACTIONS: readonly KeybindActionMeta[] = [
   // Open WebUI, and Cherry Studio all ship the same chord). Opens the pill's
   // live dropdown on the pane under the pointer, else the active composer.
   { id: 'composer.modelPicker', category: 'composer', defaults: ['mod+shift+m'] },
+  // Push-to-talk dictation (distinct from the hands-free voice conversation
+  // below). The primary modifier keeps it available while focus is inside the
+  // composer, where this action is most useful.
+  { id: 'composer.dictation', category: 'composer', defaults: ['mod+e'] },
   // Voice conversation toggle. Matches the documented `voice.record_key`
   // (Ctrl+B). On macOS that's literally ⌃B — distinct from the ⌘B sidebar
   // toggle. Off macOS `ctrl` folds to `mod`, which IS the ⌘B/Ctrl+B sidebar

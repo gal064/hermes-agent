@@ -42,6 +42,7 @@ const FOCUS_EVENT = 'hermes:composer-focus'
 const INSERT_EVENT = 'hermes:composer-insert'
 const INSERT_REFS_EVENT = 'hermes:composer-insert-refs'
 const SUBMIT_EVENT = 'hermes:composer-submit'
+const DICTATION_TOGGLE_EVENT = 'hermes:composer-dictation-toggle'
 const VOICE_TOGGLE_EVENT = 'hermes:composer-voice-toggle'
 const MODEL_MENU_EVENT = 'hermes:composer-model-menu'
 
@@ -250,6 +251,14 @@ export const requestComposerSubmit = (
 
 export const onComposerSubmitRequest = (handler: (detail: SubmitDetail) => void) =>
   subscribe<SubmitDetail>(SUBMIT_EVENT, handler)
+
+/** Toggle ONE composer's push-to-talk dictation recorder. This is deliberately
+ * separate from the hands-free voice-conversation event below. */
+export const requestDictationToggle = (target: ComposerTarget | 'active' = 'active') =>
+  dispatch<{ target: ComposerTarget }>(DICTATION_TOGGLE_EVENT, { target: resolve(target) })
+
+export const onComposerDictationToggleRequest = (handler: (target: ComposerTarget) => void) =>
+  subscribe<{ target: ComposerTarget }>(DICTATION_TOGGLE_EVENT, ({ target }) => handler(target))
 
 /** Toggle ONE composer's voice conversation — the `composer.voice` hotkey
  *  (Ctrl+B) reaches the composer that owns voice. Defaults to the active

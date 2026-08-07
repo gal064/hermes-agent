@@ -380,7 +380,7 @@ function DictationButton({
     status === 'recording' ? c.stopDictation : status === 'transcribing' ? c.transcribingDictation : c.voiceDictation
 
   return (
-    <Tip label={aria}>
+    <Tip label={<TipKeybindLabel actionId="composer.dictation" text={aria} />}>
       <Button
         aria-label={aria}
         aria-pressed={active}

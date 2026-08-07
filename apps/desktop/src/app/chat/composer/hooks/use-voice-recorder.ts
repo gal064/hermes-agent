@@ -11,7 +11,7 @@ interface VoiceRecorderOptions {
   maxRecordingSeconds: number
   onTranscribeAudio?: (audio: Blob) => Promise<string>
   focusInput: () => void
-  onTranscript: (text: string) => void
+  onTranscript: (text: string) => Promise<void> | void
 }
 
 export function useVoiceRecorder({
@@ -67,7 +67,7 @@ export function useVoiceRecorder({
       if (!transcript) {
         notify({ kind: 'warning', title: voiceCopy.noSpeechDetected, message: voiceCopy.tryRecordingAgain })
       } else {
-        onTranscript(transcript)
+        await onTranscript(transcript)
       }
     } catch (error) {
       notifyError(error, voiceCopy.transcriptionFailed)

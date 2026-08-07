@@ -59,7 +59,12 @@ import { toggleStatusbarVisible } from '@/store/statusbar-prefs'
 import { openNewWindow } from '@/store/windows'
 import { useTheme } from '@/themes/context'
 
-import { requestComposerFocus, requestModelMenuToggle, requestVoiceToggle } from '../chat/composer/focus'
+import {
+  requestComposerFocus,
+  requestDictationToggle,
+  requestModelMenuToggle,
+  requestVoiceToggle
+} from '../chat/composer/focus'
 import { openSession } from '../open-session'
 import {
   $workspaceIsPage,
@@ -181,6 +186,7 @@ export function useKeybinds(deps: KeybindRuntimeDeps): void {
         setModelPickerOpen(true)
       }
     },
+    'composer.dictation': requestDictationToggle,
     'composer.voice': requestVoiceToggle,
 
     'nav.commandPalette': toggleCommandPalette,

@@ -77,6 +77,12 @@ describe('ComposerControls shortcut tooltips', () => {
 
     await expectShortcutTooltip('Queue message', 'Ctrl+↵')
   })
+
+  it('shows the rebindable shortcut for voice dictation', async () => {
+    renderControls({ state: { ...state, voice: { active: false, enabled: true } } })
+
+    await expectShortcutTooltip('Voice dictation', 'Ctrl+E')
+  })
 })
 
 describe('wake-word ear visibility', () => {

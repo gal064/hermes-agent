@@ -250,6 +250,7 @@ export const zh: Translations = {
       'workspace.openFolder': '打开文件夹为项目',
       'composer.focus': '聚焦输入框',
       'composer.modelPicker': '打开模型选择器',
+      'composer.dictation': '开始 / 停止语音听写',
       'composer.voice': '开始 / 停止语音对话',
       'view.toggleSidebar': '切换会话侧边栏',
       'view.toggleRightSidebar': '切换文件浏览器',

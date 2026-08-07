@@ -224,6 +224,7 @@ export const ar = defineLocale({
       'workspace.openFolder': 'فتح مجلد كمشروع',
       'composer.focus': 'التركيز على المحرّر',
       'composer.modelPicker': 'فتح منتقي النموذج',
+      'composer.dictation': 'بدء / إيقاف الإملاء الصوتي',
       'composer.voice': 'بدء / إيقاف المحادثة الصوتية',
       'view.toggleSidebar': 'تبديل الشريط الجانبي للجلسات',
       'view.toggleRightSidebar': 'تبديل متصفح الملفات',

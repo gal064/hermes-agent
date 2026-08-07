@@ -13,7 +13,7 @@ import { $autoSpeakReplies, $voiceStopPhrase, setAutoSpeakReplies } from '@/stor
 import { resumeWakeAfterVoice } from '@/store/wake-word'
 
 import type { ComposerTarget } from '../focus'
-import { onComposerVoiceToggleRequest } from '../focus'
+import { onComposerDictationToggleRequest, onComposerVoiceToggleRequest } from '../focus'
 import { useComposerScope } from '../scope'
 import type { ChatBarProps } from '../types'
 
@@ -26,11 +26,13 @@ interface UseComposerVoiceArgs {
   clearDraft: () => void
   disabled: boolean
   focusInput: () => void
-  insertText: (text: string) => void
   maxRecordingSeconds: number
   /** Interrupt the in-flight agent turn (Stop-button seam) — fired when the
    *  user speaks over the model while it is still generating. */
   onInterrupt?: () => Promise<void> | void
+  /** Append the finished transcript and send it through the normal composer
+   *  submission path (draft, attachments, queue/steer behavior included). */
+  onSubmitDictation: (text: string) => Promise<void> | void
   onSubmit: ChatBarProps['onSubmit']
   onTranscribeAudio: ChatBarProps['onTranscribeAudio']
   sessionId: string | null | undefined
@@ -50,9 +52,9 @@ export function useComposerVoice({
   clearDraft,
   disabled,
   focusInput,
-  insertText,
   maxRecordingSeconds,
   onInterrupt,
+  onSubmitDictation,
   onSubmit,
   onTranscribeAudio,
   sessionId,
@@ -69,9 +71,21 @@ export function useComposerVoice({
   const { dictate, voiceActivityState, voiceStatus } = useVoiceRecorder({
     focusInput,
     maxRecordingSeconds,
-    onTranscript: insertText,
+    onTranscript: onSubmitDictation,
     onTranscribeAudio
   })
+
+  // Dictation is its own push-to-talk action. The request is target-scoped so
+  // keep-alive session tiles do not all open their microphones together.
+  useEffect(
+    () =>
+      onComposerDictationToggleRequest(toggled => {
+        if (toggled === target && !disabled && !voiceConversationActive) {
+          dictate()
+        }
+      }),
+    [dictate, disabled, target, voiceConversationActive]
+  )
 
   /** Auto-speak selector: the latest unspoken reply only — a backlog collapses to the newest. */
   const pendingResponse = () => {

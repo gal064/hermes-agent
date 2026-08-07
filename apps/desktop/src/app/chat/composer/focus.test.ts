@@ -6,10 +6,12 @@ import {
   blurComposerInput,
   getActiveComposer,
   markActiveComposer,
+  onComposerDictationToggleRequest,
   onComposerFocusRequest,
   onComposerModelMenuRequest,
   releaseActiveComposer,
   requestComposerFocus,
+  requestDictationToggle,
   requestModelMenuToggle
 } from './focus'
 import { RICH_INPUT_SLOT } from './rich-editor'
@@ -219,6 +221,22 @@ describe('resolveActive / keep-alive tab heal', () => {
     markActiveComposer('edit')
 
     expect(getActiveComposer()).toBe('edit')
+  })
+})
+
+describe('requestDictationToggle', () => {
+  it('routes push-to-talk dictation to the active composer only', async () => {
+    mountSurface('main', true)
+    mountSurface('tile:front')
+    markActiveComposer('tile:front')
+    const targets: string[] = []
+    const off = onComposerDictationToggleRequest(target => targets.push(target))
+
+    requestDictationToggle()
+    await new Promise(resolve => window.setTimeout(resolve, 0))
+    off()
+
+    expect(targets).toEqual(['tile:front'])
   })
 })
 

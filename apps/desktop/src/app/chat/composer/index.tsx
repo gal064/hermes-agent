@@ -883,10 +883,16 @@ export function ChatBar({
     clearDraft,
     disabled,
     focusInput,
-    insertText,
     maxRecordingSeconds,
     // Voice barge-in mid-generation halts the run like the Stop button.
     onInterrupt: haltRun,
+    // Programmatic insertion repaints the editor synchronously, so submitDraft
+    // reads the combined typed + dictated text and uses the same attachment,
+    // queue, and restore-on-failure path as the Send button.
+    onSubmitDictation: transcript => {
+      insertText(transcript)
+      submitDraft()
+    },
     onSubmit,
     onTranscribeAudio,
     sessionId,

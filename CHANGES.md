@@ -8,6 +8,16 @@ This file lists only behavior this branch carries beyond `upstream`. Keep it sho
 
 ## Active
 
+### Desktop file explorer shows gitignored files
+
+- **Behavior:** The Desktop project file explorer shows ordinary files and directories even when they match a repository `.gitignore`. It continues to hide the fixed VCS, dependency, environment, build, cache, and OS-noise set, including `.git`, `node_modules`, `.venv`, `venv`, `dist`, and `build`.
+- **Reason:** Git ignore rules describe version-control intent, not whether a file is useful to inspect or edit from the project explorer.
+- **Surface:** Desktop only; local Electron and remote-server directory listings retain their existing fixed-noise filtering, and server behavior is unchanged.
+- **Key files:** `apps/desktop/src/app/right-sidebar/files/ipc.ts`, `apps/desktop/src/app/right-sidebar/files/use-project-tree.ts`, and Desktop dependency metadata.
+- **Tests:** Focused Desktop file-tree tests prove ordinary dotfiles and generated files remain visible while the fixed exclusion set stays hidden.
+- **Upstream status:** Not present in the currently fetched `upstream/main` at `b3aa561fa`.
+- **Remove when:** Upstream makes `.gitignore` independent from Desktop project-explorer visibility while preserving fixed-noise exclusions.
+
 ### Desktop dictation shortcut and automatic send
 
 - **Behavior:** `Cmd+E` starts or stops desktop voice dictation. After recording stops, Desktop waits for transcription and automatically sends the resulting text through the normal composer flow. If the user switches tabs while transcription is pending, the message remains pinned to and sends from the session where dictation started.

@@ -1,48 +1,49 @@
-/// <reference types="node" />
-
-import { Buffer } from 'node:buffer'
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { HermesReadDirEntry, HermesReadDirResult } from '@/global'
+import { $connection } from '@/store/session'
 
-import { clearProjectDirCache, readProjectDir } from './ipc'
+import { readProjectDir } from './ipc'
 
 const readDir = vi.fn<(path: string) => Promise<HermesReadDirResult>>()
-const readFileDataUrl = vi.fn<(path: string) => Promise<string>>()
-const gitRoot = vi.fn<(path: string) => Promise<string | null>>()
+const api = vi.fn()
+const gitRoot = vi.fn(async () => '/repo')
+const readFileDataUrl = vi.fn(async () => 'data:text/plain,.env%0Adebug.log%0A')
 
 function ok(entries: HermesReadDirEntry[]): HermesReadDirResult {
   return { entries }
-}
-
-function dataUrl(text: string) {
-  return `data:text/plain;base64,${Buffer.from(text, 'utf8').toString('base64')}`
 }
 
 function installBridge() {
   ;(
     window as unknown as {
       hermesDesktop: {
+        api: typeof api
         gitRoot: typeof gitRoot
         readDir: typeof readDir
         readFileDataUrl: typeof readFileDataUrl
       }
     }
-  ).hermesDesktop = { gitRoot, readDir, readFileDataUrl }
+  ).hermesDesktop = {
+    api,
+    gitRoot,
+    readDir,
+    readFileDataUrl
+  }
 }
 
 describe('readProjectDir', () => {
   beforeEach(() => {
-    clearProjectDirCache()
+    $connection.set(null)
+    api.mockReset()
+    gitRoot.mockClear()
     readDir.mockReset()
-    readFileDataUrl.mockReset()
-    gitRoot.mockReset()
+    readFileDataUrl.mockClear()
     installBridge()
   })
 
   afterEach(() => {
-    clearProjectDirCache()
+    $connection.set(null)
     delete (window as unknown as { hermesDesktop?: unknown }).hermesDesktop
   })
 
@@ -52,76 +53,65 @@ describe('readProjectDir', () => {
     await expect(readProjectDir('/repo')).resolves.toEqual({ entries: [], error: 'no-bridge' })
   })
 
-  it('filters gitignored entries when readDir returns Windows-style paths', async () => {
-    gitRoot.mockResolvedValue('C:\\repo')
-    readDir.mockImplementation(async path => {
-      if (path === 'C:\\repo\\src') {
-        return ok([
-          { name: 'debug.log', path: 'C:\\repo\\src\\debug.log', isDirectory: false },
-          { name: '临时.txt', path: 'C:\\repo\\src\\临时.txt', isDirectory: false },
-          { name: 'keep.ts', path: 'C:\\repo\\src\\keep.ts', isDirectory: false }
-        ])
-      }
+  it('shows ordinary entries without consulting gitignore metadata', async () => {
+    readDir.mockResolvedValue(
+      ok([
+        { name: '.gitignore', path: '/repo/.gitignore', isDirectory: false },
+        { name: '.env', path: '/repo/.env', isDirectory: false },
+        { name: 'debug.log', path: '/repo/debug.log', isDirectory: false },
+        { name: 'src', path: '/repo/src', isDirectory: true }
+      ])
+    )
 
-      if (path === 'C:/repo') {
-        return ok([{ name: '.gitignore', path: 'C:/repo/.gitignore', isDirectory: false }])
-      }
+    const result = await readProjectDir('/repo')
 
-      if (path === 'C:/repo/src') {
-        return ok([])
-      }
-
-      return ok([])
-    })
-    readFileDataUrl.mockResolvedValue(dataUrl('# Unicode 路径规则\nsrc/*.log\nsrc/临时.txt\n'))
-
-    const result = await readProjectDir('C:\\repo\\src', 'C:\\repo')
-
-    expect(result.entries.map(entry => entry.name)).toEqual(['keep.ts'])
-    expect(gitRoot).toHaveBeenCalledWith('C:/repo')
-    expect(readFileDataUrl).toHaveBeenCalledWith('C:/repo/.gitignore')
-  })
-
-  it('filters gitignored entries when Windows path casing differs across IPC results', async () => {
-    gitRoot.mockResolvedValue('C:\\Repo')
-    readDir.mockImplementation(async path => {
-      if (path === 'c:\\repo\\src') {
-        return ok([
-          { name: 'debug.log', path: 'c:\\repo\\src\\debug.log', isDirectory: false },
-          { name: 'keep.ts', path: 'c:\\repo\\src\\keep.ts', isDirectory: false }
-        ])
-      }
-
-      if (path === 'C:/Repo') {
-        return ok([{ name: '.gitignore', path: 'C:/Repo/.gitignore', isDirectory: false }])
-      }
-
-      if (path === 'C:/Repo/src') {
-        return ok([])
-      }
-
-      return ok([])
-    })
-    readFileDataUrl.mockResolvedValue(dataUrl('src/*.log\n'))
-
-    const result = await readProjectDir('c:\\repo\\src', 'c:\\repo')
-
-    expect(result.entries.map(entry => entry.name)).toEqual(['keep.ts'])
-  })
-
-  it('does not fetch .gitignore contents when listings do not contain .gitignore', async () => {
-    gitRoot.mockResolvedValue('/repo')
-    readDir.mockImplementation(async path => {
-      if (path === '/repo/src') {
-        return ok([{ name: 'debug.log', path: '/repo/src/debug.log', isDirectory: false }])
-      }
-
-      return ok([])
-    })
-
-    const result = await readProjectDir('/repo/src', '/repo')
-
-    expect(result.entries.map(entry => entry.name)).toEqual(['debug.log'])
+    expect(result.entries.map(entry => entry.name)).toEqual(['.gitignore', '.env', 'debug.log', 'src'])
+    expect(readDir).toHaveBeenCalledOnce()
+    expect(readDir).toHaveBeenCalledWith('/repo')
+    expect(gitRoot).not.toHaveBeenCalled()
     expect(readFileDataUrl).not.toHaveBeenCalled()
+  })
+
+  it('keeps fixed noise entries hidden regardless of gitignore', async () => {
+    readDir.mockResolvedValue(
+      ok([
+        { name: '.git', path: '/repo/.git', isDirectory: true },
+        { name: 'node_modules', path: '/repo/node_modules', isDirectory: true },
+        { name: '.venv', path: '/repo/.venv', isDirectory: true },
+        { name: 'venv', path: '/repo/venv', isDirectory: true },
+        { name: 'dist', path: '/repo/dist', isDirectory: true },
+        { name: 'build', path: '/repo/build', isDirectory: true },
+        { name: 'generated.txt', path: '/repo/generated.txt', isDirectory: false }
+      ])
+    )
+
+    const result = await readProjectDir('/repo')
+
+    expect(result.entries.map(entry => entry.name)).toEqual(['generated.txt'])
+  })
+
+  it('shows gitignored entries from a remote Desktop connection', async () => {
+    $connection.set({ mode: 'remote', profile: 'remote-dev' } as never)
+    api.mockResolvedValue(
+      ok([
+        { name: '.env', path: '/srv/repo/.env', isDirectory: false },
+        { name: 'generated.log', path: '/srv/repo/generated.log', isDirectory: false }
+      ])
+    )
+
+    const result = await readProjectDir('/srv/repo')
+
+    expect(result.entries.map(entry => entry.name)).toEqual(['.env', 'generated.log'])
+    expect(readDir).not.toHaveBeenCalled()
+    expect(api).toHaveBeenCalledWith({
+      path: '/api/fs/list?path=%2Fsrv%2Frepo',
+      profile: 'remote-dev'
+    })
+  })
+
+  it('preserves directory read errors', async () => {
+    readDir.mockResolvedValue({ entries: [], error: 'EACCES' })
+
+    await expect(readProjectDir('/repo')).resolves.toEqual({ entries: [], error: 'EACCES' })
   })
 })

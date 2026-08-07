@@ -2,7 +2,7 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { $clarifyRequests } from '@/store/clarify'
-import type { ComposerAttachment } from '@/store/composer'
+import { clearSessionDraft, type ComposerAttachment, stashSessionDraft } from '@/store/composer'
 import { $gateway } from '@/store/gateway'
 
 import { useComposerSubmit } from './use-composer-submit'
@@ -11,6 +11,8 @@ interface SubmitHarnessOptions {
   attachments?: ComposerAttachment[]
   busy?: boolean
   compacting?: boolean
+  sessionId?: string
+  storedSessionId?: string
   text?: string
 }
 
@@ -18,10 +20,12 @@ function renderSubmitHook({
   attachments = [],
   busy = false,
   compacting = false,
+  sessionId = 'runtime-session',
+  storedSessionId = 'stored-session',
   text = ''
 }: SubmitHarnessOptions = {}) {
   const draftRef = { current: text }
-  const editor = document.createElement('div')
+  const editor = globalThis.document.createElement('div')
   editor.dataset.slot = 'composer-rich-input'
   editor.textContent = text
   const editorRef = { current: editor }
@@ -29,6 +33,9 @@ function renderSubmitHook({
   const onSteer = vi.fn(async () => true)
   const onSubmit = vi.fn(async () => true)
   const queueCurrentDraft = vi.fn(() => true)
+  const activeQueueSessionKeyRef = { current: storedSessionId }
+  const loadIntoComposer = vi.fn()
+  const stashAt = vi.fn()
 
   const clearDraft = vi.fn(() => {
     draftRef.current = ''
@@ -37,8 +44,8 @@ function renderSubmitHook({
 
   const hook = renderHook(() =>
     useComposerSubmit({
-      activeQueueSessionKey: 'stored-session',
-      activeQueueSessionKeyRef: { current: 'stored-session' },
+      activeQueueSessionKey: storedSessionId,
+      activeQueueSessionKeyRef,
       attachments,
       busy,
       compacting,
@@ -50,25 +57,37 @@ function renderSubmitHook({
       exitQueuedEdit: vi.fn(() => false),
       focusInput: vi.fn(),
       inputDisabled: false,
-      loadIntoComposer: vi.fn(),
+      loadIntoComposer,
       onCancel,
       onSteer,
       onSubmit,
       queueCurrentDraft,
       queueEdit: null,
       queuedPrompts: [],
-      sessionId: 'runtime-session',
+      sessionId,
+      storedSessionId,
       setComposerText: vi.fn(),
-      stashAt: vi.fn()
+      stashAt
     })
   )
 
-  return { clearDraft, hook, onCancel, onSteer, onSubmit, queueCurrentDraft }
+  return {
+    activeQueueSessionKeyRef,
+    clearDraft,
+    hook,
+    loadIntoComposer,
+    onCancel,
+    onSteer,
+    onSubmit,
+    queueCurrentDraft,
+    stashAt
+  }
 }
 
 describe('useComposerSubmit busy-turn routing', () => {
   afterEach(() => {
     cleanup()
+    clearSessionDraft('stored-session-x')
     vi.restoreAllMocks()
   })
 
@@ -116,7 +135,11 @@ describe('useComposerSubmit busy-turn routing', () => {
     })
 
     await waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith('/compress preserve context', { composerScope: 'stored-session' })
+      expect(onSubmit).toHaveBeenCalledWith('/compress preserve context', {
+        composerScope: 'stored-session',
+        sessionId: 'runtime-session',
+        storedSessionId: 'stored-session'
+      })
     )
     expect(clearDraft).toHaveBeenCalledTimes(1)
     expect(onSteer).not.toHaveBeenCalled()
@@ -166,7 +189,9 @@ describe('useComposerSubmit busy-turn routing', () => {
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith('ordinary question', {
         attachments: [],
-        composerScope: 'stored-session'
+        composerScope: 'stored-session',
+        sessionId: 'runtime-session',
+        storedSessionId: 'stored-session'
       })
     )
     expect(onSteer).not.toHaveBeenCalled()
@@ -184,6 +209,80 @@ describe('useComposerSubmit busy-turn routing', () => {
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith('hello', expect.objectContaining({ composerScope: 'stored-session' }))
     )
+  })
+
+  it('pins a delayed submit to the session that owned the composer before a tab switch', async () => {
+    const { activeQueueSessionKeyRef, hook, onSubmit } = renderSubmitHook({
+      sessionId: 'runtime-session-x',
+      storedSessionId: 'stored-session-x',
+      text: 'dictated in X'
+    })
+
+    const submitFromSessionX = hook.result.current.submitDraft
+
+    // The transcription subscription is still owned by X, but the selected
+    // tab has moved to Y by the time its delayed callback fires.
+    activeQueueSessionKeyRef.current = 'stored-session-y'
+
+    act(() => submitFromSessionX())
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith('dictated in X', {
+        attachments: [],
+        composerScope: 'stored-session-x',
+        sessionId: 'runtime-session-x',
+        storedSessionId: 'stored-session-x'
+      })
+    )
+    expect(activeQueueSessionKeyRef.current).toBe('stored-session-y')
+  })
+
+  it("submits a delayed transcript from X's stashed draft after the composer loads Y", async () => {
+    const attachment: ComposerAttachment = { id: 'x-file', kind: 'file', label: 'x.txt' }
+
+    const { activeQueueSessionKeyRef, hook, onSubmit } = renderSubmitHook({
+      sessionId: 'runtime-session-x',
+      storedSessionId: 'stored-session-x'
+    })
+
+    stashSessionDraft('stored-session-x', 'typed in X', [attachment])
+    activeQueueSessionKeyRef.current = 'stored-session-y'
+
+    let handled = false
+
+    act(() => {
+      handled = hook.result.current.submitBackgroundDictation('dictated in X', 'stored-session-x')
+    })
+
+    expect(handled).toBe(true)
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith('typed in X\ndictated in X', {
+        attachments: [attachment],
+        composerScope: 'stored-session-x',
+        sessionId: 'runtime-session-x',
+        storedSessionId: 'stored-session-x'
+      })
+    )
+  })
+
+  it("restores a rejected background submit only to its own session's stash", async () => {
+    const { activeQueueSessionKeyRef, hook, loadIntoComposer, onSubmit, stashAt } = renderSubmitHook({
+      sessionId: 'runtime-session-x',
+      storedSessionId: 'stored-session-x',
+      text: 'dictated in X'
+    })
+
+    const submitFromSessionX = hook.result.current.submitDraft
+
+    onSubmit.mockResolvedValueOnce(false)
+    activeQueueSessionKeyRef.current = 'stored-session-y'
+
+    act(() => submitFromSessionX())
+
+    await waitFor(() =>
+      expect(stashAt).toHaveBeenCalledWith('stored-session-x', 'dictated in X', [])
+    )
+    expect(loadIntoComposer).not.toHaveBeenCalled()
   })
 })
 

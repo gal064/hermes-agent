@@ -621,6 +621,7 @@ export const ChatView = memo(function ChatView({
               queueSessionKey={queueSessionKey}
               sessionId={activeSessionId}
               state={chatBarState}
+              storedSessionId={storedId}
             />
           </Suspense>
         )}

@@ -3,7 +3,7 @@ import { type RefObject, useEffect, useRef } from 'react'
 import { SLASH_COMMAND_RE } from '@/lib/chat-runtime'
 import { triggerHaptic } from '@/lib/haptics'
 import { hasClarifyRequest, skipClarifyRequest } from '@/store/clarify'
-import { clearSessionDraft, type ComposerAttachment } from '@/store/composer'
+import { clearSessionDraft, type ComposerAttachment, takeSessionDraft } from '@/store/composer'
 import { resetBrowseState } from '@/store/composer-input-history'
 import { enqueueQueuedPrompt, type QueuedPromptEntry } from '@/store/composer-queue'
 
@@ -36,6 +36,7 @@ interface UseComposerSubmitArgs {
   queueEdit: QueueEditState | null
   queuedPrompts: QueuedPromptEntry[]
   sessionId: string | null | undefined
+  storedSessionId: string | null | undefined
   setComposerText: (value: string) => void
   stashAt: (scope: string | null, text?: string, attachments?: ComposerAttachment[]) => void
 }
@@ -71,6 +72,7 @@ export function useComposerSubmit({
   queueEdit,
   queuedPrompts,
   sessionId,
+  storedSessionId,
   setComposerText,
   stashAt
 }: UseComposerSubmitArgs) {
@@ -78,24 +80,41 @@ export function useComposerSubmit({
 
   // Shared send primitive: fire onSubmit, and if the gateway rejects (accepted
   // === false) or throws, re-load + re-stash the draft so the words survive.
-  const dispatchSubmit = (text: string, attachments?: ComposerAttachment[]) => {
-    const submittedScope = activeQueueSessionKeyRef.current
+  const dispatchSubmit = (
+    text: string,
+    attachments?: ComposerAttachment[],
+    submittedScope = activeQueueSessionKey
+  ) => {
     const submittedAttachments = attachments ?? []
 
     const restore = () => {
-      loadIntoComposer(text, submittedAttachments)
       // Use the scope captured at dispatch, not whatever session is focused
       // now — the gateway can reject well after the user has switched away,
       // and re-stashing into the currently-focused session would overwrite
       // its draft with the rejected text from a different session (#54527).
       stashAt(submittedScope, text, submittedAttachments)
+
+      // Repaint only while this composer still has the submitted session
+      // loaded. A late failure from background session X must not replace the
+      // visible draft in session Y.
+      if (activeQueueSessionKeyRef.current === submittedScope) {
+        loadIntoComposer(text, submittedAttachments)
+      }
     }
 
-    void Promise.resolve(
-      attachments
-        ? onSubmit(text, { attachments, composerScope: submittedScope })
-        : onSubmit(text, { composerScope: submittedScope })
-    )
+    // Pin both identities at the composer that initiated the send. A delayed
+    // dictation can finish after its tab is no longer selected; without these
+    // explicit targets the session-drift guard correctly rejects the now-
+    // background submit and restores the transcript as a draft. The captured
+    // IDs let it send to that original session without ever consulting the
+    // foreground tab.
+    const target = {
+      composerScope: submittedScope,
+      ...(sessionId ? { sessionId } : {}),
+      ...(storedSessionId ? { storedSessionId } : {})
+    }
+
+    void Promise.resolve(attachments ? onSubmit(text, { ...target, attachments }) : onSubmit(text, target))
       .then(accepted => void (accepted === false ? restore() : clearSessionDraft(submittedScope)))
       .catch(restore)
   }
@@ -204,6 +223,30 @@ export function useComposerSubmit({
     focusInput()
   }
 
+  /**
+   * Complete a dictation whose owning composer has since loaded another
+   * session. Returns false while the original session is still loaded so the
+   * caller can use the ordinary insert + submitDraft path (including busy-turn
+   * steer/queue behavior). The background path reads only the original
+   * session's stash and dispatches with its captured identities.
+   */
+  const submitBackgroundDictation = (transcript: string, dictatedScope: string | null): boolean => {
+    if (activeQueueSessionKeyRef.current === dictatedScope) {
+      return false
+    }
+
+    const stashed = takeSessionDraft(dictatedScope)
+    const separator = stashed.text && !stashed.text.endsWith('\n') ? '\n' : ''
+    const text = pathifyRefs(`${stashed.text}${separator}${transcript}`)
+
+    triggerHaptic('submit')
+    resetBrowseState(sessionId)
+    clearSessionDraft(dictatedScope)
+    dispatchSubmit(text, stashed.attachments, dictatedScope)
+
+    return true
+  }
+
   // Redirect the live turn with a correction. The gateway either restarts the
   // active model request with its displayed context or waits for the current
   // tool boundary. If the turn already ended, queue the words instead.
@@ -235,5 +278,5 @@ export function useComposerSubmit({
     focusInput()
   }
 
-  return { dispatchSubmit, queueDraft, steerDraft, submitDraft }
+  return { dispatchSubmit, queueDraft, steerDraft, submitBackgroundDictation, submitDraft }
 }

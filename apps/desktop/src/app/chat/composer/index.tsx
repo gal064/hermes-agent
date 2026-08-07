@@ -86,6 +86,7 @@ export function ChatBar({
   maxRecordingSeconds = 120,
   queueSessionKey,
   sessionId,
+  storedSessionId,
   state,
   onCancel,
   onAddUrl,
@@ -310,7 +311,7 @@ export function ChatBar({
 
   // The submit engine — the orchestration seam where draft + queue meet. Owns
   // the submit decision tree, the send-with-restore primitive, and steer.
-  const { queueDraft, steerDraft, submitDraft } = useComposerSubmit({
+  const { queueDraft, steerDraft, submitBackgroundDictation, submitDraft } = useComposerSubmit({
     activeQueueSessionKey,
     activeQueueSessionKeyRef,
     attachments,
@@ -334,6 +335,7 @@ export function ChatBar({
     queueEdit,
     queuedPrompts,
     sessionId,
+    storedSessionId,
     setComposerText,
     stashAt
   })
@@ -888,8 +890,14 @@ export function ChatBar({
     onInterrupt: haltRun,
     // Programmatic insertion repaints the editor synchronously, so submitDraft
     // reads the combined typed + dictated text and uses the same attachment,
-    // queue, and restore-on-failure path as the Send button.
+    // queue, and restore-on-failure path as the Send button. If this long-lived
+    // callback belongs to session X but the same composer has since loaded Y,
+    // build and dispatch X's stashed draft explicitly — never touch Y's editor.
     onSubmitDictation: transcript => {
+      if (submitBackgroundDictation(transcript, activeQueueSessionKey)) {
+        return
+      }
+
       insertText(transcript)
       submitDraft()
     },

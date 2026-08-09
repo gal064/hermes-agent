@@ -71,6 +71,8 @@ Run focused tests for every retained fork change, then the appropriate broader c
 
 For Desktop work, refresh the locked JavaScript dependencies with `npm ci` at the repository root before classifying missing-module or missing-export type errors as baseline, then rerun the check. The packaging command performs the same deterministic install.
 
+The current updater records a content hash in `$HERMES_HOME/desktop-build-stamp.json` and skips the Desktop subprocess when the packaged artifact already matches. Use `--force-build` for authoring proof so a stale or accidentally shared stamp cannot turn the required package check into a no-op.
+
 Before pushing a Desktop change, prove the authoring worktree packages successfully:
 
 ```bash
@@ -92,6 +94,8 @@ The current Desktop can connect to a remote backend. That does not make a render
 ## 6. Install Hermes Desktop on this Mac
 
 Ask before changing the managed checkout, quitting Hermes, or replacing the running app.
+
+On macOS, the in-app updater now resolves its update root, runs `hermes update --yes`, rebuilds with `hermes desktop --build-only`, and atomically swaps the rebuilt release bundle into the discovered running bundle when those paths differ. That automation is safe for this fork only after the managed checkout has the fork as `origin`, Nous as `upstream`, and the intended branch checked out; otherwise use the reviewed manual flow below.
 
 ### Preferred durable install
 

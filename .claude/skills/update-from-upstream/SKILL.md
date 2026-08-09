@@ -148,6 +148,8 @@ Clear only the quarantine attribute if present, register the final bundle with L
 - the app connects in its prior local/remote mode;
 - focused UI behavior and a native test notification work.
 
+Do not use Computer Use for QA unless the user explicitly requests Computer Use QA. By default, rely on automated checks and ask the user to confirm live UI behavior or notifications when direct verification would require Computer Use.
+
 Do not request new Accessibility, Screen Recording, Automation, or microphone permission solely to automate verification. Prefer existing tests plus user-confirmed live behavior when UI inspection lacks permission.
 
 Remove any temporary staging or backup bundle only after verification.

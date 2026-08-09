@@ -159,10 +159,12 @@ Hermes native notifications work while the app is running or backgrounded. Signi
 
 ### Launch and verify
 
-Clear only the quarantine attribute if present, register the final bundle with LaunchServices when its path changed, and open that exact bundle. Verify:
+Every local Desktop deployment must end by launching the exact rebuilt bundle and proving that it is the current managed-checkout version. A successful build alone is not a completed deployment. If the managed checkout advances after a build—even for documentation or skill-only follow-up commits—and the user asks for the Desktop to be fully up to date, rebuild so the packaged install stamp matches managed `HEAD`.
+
+Clear only the quarantine attribute if present, register the final bundle with LaunchServices when its path changed, and open that exact bundle. Always verify:
 
 - the running executable path is the intended fork-built bundle;
-- `Contents/Resources/install-stamp.json` matches the deployed branch/commit;
+- `Contents/Resources/install-stamp.json` matches the deployed branch and the current managed-checkout `HEAD`;
 - strict code-sign verification still passes after installation;
 - the app connects in its prior local/remote mode;
 - focused UI behavior and a native test notification work.

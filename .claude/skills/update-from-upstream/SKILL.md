@@ -67,9 +67,28 @@ Whenever source changes alter updating, building, signing, installation paths, b
 
 ## 4. Validate
 
-Run focused tests for every retained fork change, then the appropriate broader checks. Treat failures in changed paths as real until proven otherwise; report unrelated baseline failures separately.
+### Align on validation scope
 
-For Desktop work, refresh the locked JavaScript dependencies with `npm ci` at the repository root before classifying missing-module or missing-export type errors as baseline, then rerun the check. The packaging command performs the same deterministic install.
+At the start of a merge, tell the user that validation is **fast and focused by default** and invite them to opt into broader testing. Unless the user explicitly requests otherwise, proceed with the focused scope without blocking on an answer. The available scopes are:
+
+- **Focused (default):** test merge-conflict resolutions, retained fork behavior touched by the incoming range, and the direct integration seams affected by those resolutions.
+- **Broader:** add the relevant subsystem suite when the user requests it or focused results reveal credible cross-cutting risk.
+- **Full:** run the repository-wide suite only when the user explicitly requests it.
+
+Assume unchanged upstream code was tested upstream. Do not rerun broad renderer, Electron, Python, or repository-wide suites merely because the upstream merge is large. Before escalating from focused validation to a broader suite, explain the concrete risk or failure that justifies it and align with the user.
+
+### Focused merge validation
+
+Choose the smallest checks that can catch mistakes introduced locally by the merge:
+
+1. Run the regression tests named by each retained `CHANGES.md` entry whose behavior or files were touched.
+2. Test every conflict resolution at its behavioral boundary, including sibling call paths when the resolution changes shared code.
+3. Run the narrow typecheck, lint, build, or packaging command required by the affected surface.
+4. Do not test incoming upstream-only files unless a local conflict, fork delta, or observed failure creates a specific integration risk.
+
+Treat failures in changed paths as real until proven otherwise; report unrelated baseline failures separately. A stopped or intentionally skipped full suite is not a merge failure when the agreed focused checks pass.
+
+For Desktop conflicts or touched fork behavior, refresh the locked JavaScript dependencies with `npm ci` at the repository root when dependency manifests changed or before classifying missing-module or missing-export errors as baseline. The packaging command performs the same deterministic install. Do not run the complete renderer or Electron test suite by default; select the affected test files and the narrowest applicable typecheck/build command.
 
 The current updater records a content hash in `$HERMES_HOME/desktop-build-stamp.json` and skips the Desktop subprocess when the packaged artifact already matches. Use `--force-build` for authoring proof so a stale or accidentally shared stamp cannot turn the required package check into a no-op.
 

@@ -80,11 +80,7 @@ export function useComposerSubmit({
 
   // Shared send primitive: fire onSubmit, and if the gateway rejects (accepted
   // === false) or throws, re-load + re-stash the draft so the words survive.
-  const dispatchSubmit = (
-    text: string,
-    attachments?: ComposerAttachment[],
-    submittedScope = activeQueueSessionKey
-  ) => {
+  const dispatchSubmit = (text: string, attachments?: ComposerAttachment[], submittedScope = activeQueueSessionKey) => {
     const submittedAttachments = attachments ?? []
 
     const restore = () => {

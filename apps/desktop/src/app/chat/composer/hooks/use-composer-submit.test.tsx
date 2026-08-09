@@ -279,9 +279,7 @@ describe('useComposerSubmit busy-turn routing', () => {
 
     act(() => submitFromSessionX())
 
-    await waitFor(() =>
-      expect(stashAt).toHaveBeenCalledWith('stored-session-x', 'dictated in X', [])
-    )
+    await waitFor(() => expect(stashAt).toHaveBeenCalledWith('stored-session-x', 'dictated in X', []))
     expect(loadIntoComposer).not.toHaveBeenCalled()
   })
 })

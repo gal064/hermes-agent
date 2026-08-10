@@ -12,7 +12,7 @@ import { onComposerSubmitRequest } from '../focus'
 import { pathifyRefs } from '../path-refs'
 import { composerPlainText } from '../rich-editor'
 import { useComposerScope } from '../scope'
-import type { ChatBarProps } from '../types'
+import type { ChatBarProps, ComposerSendTarget } from '../types'
 
 interface UseComposerSubmitArgs {
   activeQueueSessionKey: string | null
@@ -78,13 +78,18 @@ export function useComposerSubmit({
 }: UseComposerSubmitArgs) {
   const scope = useComposerScope()
 
+  // This composer's session identities as of this render — the target for
+  // anything sent from the live editor (typing, Send, steer).
+  const liveTarget = (): ComposerSendTarget => ({ composerScope: activeQueueSessionKey, sessionId, storedSessionId })
+
   // Shared send primitive: fire onSubmit, and if the gateway rejects (accepted
   // === false) or throws, re-load + re-stash the draft so the words survive.
-  const dispatchSubmit = (
-    text: string,
-    attachments?: ComposerAttachment[],
-    submittedScope = activeQueueSessionKey
-  ) => {
+  // `pinned` overrides the live identities for a send whose target was captured
+  // earlier (dictation) — all three must travel together, since a mixed target
+  // trips the drift guard and aborts the send instead of routing it.
+  const dispatchSubmit = (text: string, attachments?: ComposerAttachment[], pinned?: ComposerSendTarget) => {
+    const submitted = pinned ?? liveTarget()
+    const submittedScope = submitted.composerScope
     const submittedAttachments = attachments ?? []
 
     const restore = () => {
@@ -102,16 +107,15 @@ export function useComposerSubmit({
       }
     }
 
-    // Pin both identities at the composer that initiated the send. A delayed
-    // dictation can finish after its tab is no longer selected; without these
-    // explicit targets the session-drift guard correctly rejects the now-
-    // background submit and restores the transcript as a draft. The captured
-    // IDs let it send to that original session without ever consulting the
-    // foreground tab.
+    // Carry all three identities explicitly. A delayed dictation can finish
+    // after its tab is no longer selected; without these targets the session-
+    // drift guard correctly rejects the now-background submit and restores the
+    // transcript as a draft. The captured IDs let it send to that original
+    // session without ever consulting the foreground tab.
     const target = {
       composerScope: submittedScope,
-      ...(sessionId ? { sessionId } : {}),
-      ...(storedSessionId ? { storedSessionId } : {})
+      ...(submitted.sessionId ? { sessionId: submitted.sessionId } : {}),
+      ...(submitted.storedSessionId ? { storedSessionId: submitted.storedSessionId } : {})
     }
 
     void Promise.resolve(attachments ? onSubmit(text, { ...target, attachments }) : onSubmit(text, target))
@@ -225,24 +229,30 @@ export function useComposerSubmit({
 
   /**
    * Complete a dictation whose owning composer has since loaded another
-   * session. Returns false while the original session is still loaded so the
-   * caller can use the ordinary insert + submitDraft path (including busy-turn
-   * steer/queue behavior). The background path reads only the original
-   * session's stash and dispatches with its captured identities.
+   * session. `dictated` is the target pinned when the microphone opened, so
+   * this covers a switch made at any point in the dictation's life — while
+   * still speaking, or while the transcript is in flight. Returns false while
+   * that session is still loaded so the caller can use the ordinary insert +
+   * submitDraft path (including busy-turn steer/queue behavior). The background
+   * path reads only the original session's stash and dispatches with its
+   * captured identities — never the live props, which now describe the session
+   * the user moved to.
    */
-  const submitBackgroundDictation = (transcript: string, dictatedScope: string | null): boolean => {
-    if (activeQueueSessionKeyRef.current === dictatedScope) {
+  const submitBackgroundDictation = (transcript: string, dictated: ComposerSendTarget | null): boolean => {
+    // No pin (a recording that started before the pin existed, or a non-
+    // dictation caller): the live path is the only sane target.
+    if (!dictated || activeQueueSessionKeyRef.current === dictated.composerScope) {
       return false
     }
 
-    const stashed = takeSessionDraft(dictatedScope)
+    const stashed = takeSessionDraft(dictated.composerScope)
     const separator = stashed.text && !stashed.text.endsWith('\n') ? '\n' : ''
     const text = pathifyRefs(`${stashed.text}${separator}${transcript}`)
 
     triggerHaptic('submit')
-    resetBrowseState(sessionId)
-    clearSessionDraft(dictatedScope)
-    dispatchSubmit(text, stashed.attachments, dictatedScope)
+    resetBrowseState(dictated.sessionId)
+    clearSessionDraft(dictated.composerScope)
+    dispatchSubmit(text, stashed.attachments, dictated)
 
     return true
   }

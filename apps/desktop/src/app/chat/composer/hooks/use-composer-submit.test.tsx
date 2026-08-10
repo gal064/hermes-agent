@@ -251,7 +251,11 @@ describe('useComposerSubmit busy-turn routing', () => {
     let handled = false
 
     act(() => {
-      handled = hook.result.current.submitBackgroundDictation('dictated in X', 'stored-session-x')
+      handled = hook.result.current.submitBackgroundDictation('dictated in X', {
+        composerScope: 'stored-session-x',
+        sessionId: 'runtime-session-x',
+        storedSessionId: 'stored-session-x'
+      })
     })
 
     expect(handled).toBe(true)
@@ -263,6 +267,57 @@ describe('useComposerSubmit busy-turn routing', () => {
         storedSessionId: 'stored-session-x'
       })
     )
+  })
+
+  it('sends a dictation to its pinned session even after the composer itself moved on', async () => {
+    // The composer — props AND ref — now belongs to Y: the user switched tabs
+    // while still speaking, so every closure rebuilt since describes Y. Only
+    // the pin taken when the microphone opened still knows about X.
+    const { hook, onSubmit } = renderSubmitHook({
+      sessionId: 'runtime-session-y',
+      storedSessionId: 'stored-session-y',
+      text: 'typed in Y'
+    })
+
+    stashSessionDraft('stored-session-x', 'typed in X', [])
+
+    let handled = false
+
+    act(() => {
+      handled = hook.result.current.submitBackgroundDictation('dictated in X', {
+        composerScope: 'stored-session-x',
+        sessionId: 'runtime-session-x',
+        storedSessionId: 'stored-session-x'
+      })
+    })
+
+    expect(handled).toBe(true)
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith('typed in X\ndictated in X', {
+        attachments: [],
+        composerScope: 'stored-session-x',
+        sessionId: 'runtime-session-x',
+        storedSessionId: 'stored-session-x'
+      })
+    )
+    // Y's own draft is untouched — it was never part of this dictation.
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves an unpinned dictation on the ordinary foreground path', async () => {
+    const { hook, onSubmit } = renderSubmitHook({
+      sessionId: 'runtime-session-x',
+      storedSessionId: 'stored-session-x'
+    })
+
+    let handled = true
+
+    act(() => {
+      handled = hook.result.current.submitBackgroundDictation('no pin', null)
+    })
+
+    expect(handled).toBe(false)
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 
   it("restores a rejected background submit only to its own session's stash", async () => {
@@ -279,9 +334,7 @@ describe('useComposerSubmit busy-turn routing', () => {
 
     act(() => submitFromSessionX())
 
-    await waitFor(() =>
-      expect(stashAt).toHaveBeenCalledWith('stored-session-x', 'dictated in X', [])
-    )
+    await waitFor(() => expect(stashAt).toHaveBeenCalledWith('stored-session-x', 'dictated in X', []))
     expect(loadIntoComposer).not.toHaveBeenCalled()
   })
 })

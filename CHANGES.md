@@ -20,10 +20,10 @@ This file lists only behavior this branch carries beyond `upstream`. Keep it sho
 
 ### Desktop dictation shortcut and automatic send
 
-- **Behavior:** `Cmd+E` starts or stops desktop voice dictation. After recording stops, Desktop waits for transcription and automatically sends the resulting text through the normal composer flow. If the user switches tabs while transcription is pending, the message remains pinned to and sends from the session where dictation started.
+- **Behavior:** `Cmd+E` starts or stops desktop voice dictation. After recording stops, Desktop waits for transcription and automatically sends the resulting text through the normal composer flow. The target session is pinned when the microphone opens, so switching tabs at any point in the dictation's life — while still speaking, or while transcription is in flight — still sends from the session where dictation started, merged with that session's own draft.
 - **Reason:** Dictation previously required clicking the microphone and left the transcript in the draft instead of sending it.
 - **Surface:** Desktop only; the existing server transcription endpoint is unchanged.
 - **Key files:** `apps/desktop/src/lib/keybinds/actions.ts`, `apps/desktop/src/app/hooks/use-keybinds.ts`, and `apps/desktop/src/app/chat/composer/`.
-- **Tests:** Shortcut routing, tooltip discovery, delayed transcription, background-session targeting, and cross-session draft restoration are covered by focused desktop tests.
+- **Tests:** Shortcut routing, tooltip discovery, delayed transcription, mic-open target pinning across a mid-recording session switch, background-session targeting, and cross-session draft restoration are covered by focused desktop tests.
 - **Upstream status:** Not present in the currently fetched `upstream/main` at `e34c4c009`.
 - **Remove when:** Upstream provides both a desktop dictation shortcut and automatic submission after transcription completes.

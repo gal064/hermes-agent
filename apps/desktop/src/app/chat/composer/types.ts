@@ -57,6 +57,23 @@ export interface ChatBarProps {
   onTranscribeAudio?: (audio: Blob) => Promise<string>
 }
 
+/**
+ * The three session identities a send is bound to, captured together at one
+ * instant. Dictation is the reason this exists: recording and transcription
+ * both outlive the render that started them, so the target must be pinned when
+ * the microphone opens and carried through to the submit — reading any of the
+ * three off live props at send time lands the words in whatever session the
+ * user happens to be looking at by then.
+ */
+export interface ComposerSendTarget {
+  /** Draft/queue scope key — the composer's own session identity. */
+  composerScope: string | null
+  /** Runtime session id (gateway streaming identity). */
+  sessionId: string | null | undefined
+  /** Durable stored session id. */
+  storedSessionId: string | null | undefined
+}
+
 export type VoiceStatus = 'idle' | 'recording' | 'transcribing'
 
 export interface VoiceActivityState {

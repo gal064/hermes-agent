@@ -15,7 +15,7 @@ import { resumeWakeAfterVoice } from '@/store/wake-word'
 import type { ComposerTarget } from '../focus'
 import { onComposerDictationToggleRequest, onComposerVoiceToggleRequest } from '../focus'
 import { useComposerScope } from '../scope'
-import type { ChatBarProps } from '../types'
+import type { ChatBarProps, ComposerSendTarget } from '../types'
 
 import { useAutoSpeakReplies } from './use-auto-speak-replies'
 import { useVoiceConversation } from './use-voice-conversation'
@@ -31,9 +31,13 @@ interface UseComposerVoiceArgs {
    *  user speaks over the model while it is still generating. */
   onInterrupt?: () => Promise<void> | void
   /** Append the finished transcript and send it through the normal composer
-   *  submission path (draft, attachments, queue/steer behavior included). */
-  onSubmitDictation: (text: string) => Promise<void> | void
+   *  submission path (draft, attachments, queue/steer behavior included).
+   *  `target` is the session captured when the microphone opened — the send
+   *  belongs to it, not to whatever is on screen when the words arrive. */
+  onSubmitDictation: (text: string, target: ComposerSendTarget | null) => Promise<void> | void
   onSubmit: ChatBarProps['onSubmit']
+  /** Snapshot this composer's session identities for a starting dictation. */
+  pinDictationTarget: () => ComposerSendTarget
   onTranscribeAudio: ChatBarProps['onTranscribeAudio']
   sessionId: string | null | undefined
   /** This composer's focus-bus key — voice toggles targeting another
@@ -57,6 +61,7 @@ export function useComposerVoice({
   onSubmitDictation,
   onSubmit,
   onTranscribeAudio,
+  pinDictationTarget,
   sessionId,
   target
 }: UseComposerVoiceArgs) {
@@ -72,7 +77,8 @@ export function useComposerVoice({
     focusInput,
     maxRecordingSeconds,
     onTranscript: onSubmitDictation,
-    onTranscribeAudio
+    onTranscribeAudio,
+    pinTarget: pinDictationTarget
   })
 
   // Dictation is its own push-to-talk action. The request is target-scoped so

@@ -73,7 +73,7 @@ import { ComposerStatusStack } from './status-stack'
 import { CodingStatusRow } from './status-stack/coding-row'
 import { extractClipboardImageBlobs, openDirectiveScope } from './text-utils'
 import { ComposerTriggerPopover } from './trigger-popover'
-import type { ChatBarProps } from './types'
+import type { ChatBarProps, ComposerSendTarget } from './types'
 import { isRedoShortcut, isUndoShortcut } from './undo-history'
 import { UrlDialog } from './url-dialog'
 import { chipTypedUrlOnSpace, linkifyUrls } from './url-refs'
@@ -876,6 +876,34 @@ export function ChatBar({
   // Same explicit-halt semantics as the Stop button: park the queue.
   useComposerEscCancel({ awaitingInput, busy, onCancel: haltRun, target: scope.target })
 
+  // A dictation outlives the render that started it — the user speaks for as
+  // long as they like and transcription adds seconds more — so the recorder is
+  // holding whichever closure happened to be live when recording stopped. Route
+  // completion through a latest-closure ref (same pattern as dispatchSubmitRef)
+  // so the transcript is judged against the composer's CURRENT state, and let
+  // the pinned target — captured when the mic opened — decide the session.
+  const submitDictationRef = useRef<(transcript: string, dictated: ComposerSendTarget | null) => void>(() => {})
+
+  submitDictationRef.current = (transcript, dictated) => {
+    // Session X's dictation landing while the composer shows Y: build and
+    // dispatch X's stashed draft explicitly — never touch Y's editor.
+    if (submitBackgroundDictation(transcript, dictated)) {
+      return
+    }
+
+    // Still the session that was dictated into. Programmatic insertion repaints
+    // the editor synchronously, so submitDraft reads the combined typed +
+    // dictated text and uses the same attachment, queue, and restore-on-failure
+    // path as the Send button.
+    insertText(transcript)
+    submitDraft()
+  }
+
+  const handleSubmitDictation = useCallback(
+    (transcript: string, dictated: ComposerSendTarget | null) => submitDictationRef.current(transcript, dictated),
+    []
+  )
+
   const {
     conversation,
     dictate,
@@ -893,21 +921,13 @@ export function ChatBar({
     maxRecordingSeconds,
     // Voice barge-in mid-generation halts the run like the Stop button.
     onInterrupt: haltRun,
-    // Programmatic insertion repaints the editor synchronously, so submitDraft
-    // reads the combined typed + dictated text and uses the same attachment,
-    // queue, and restore-on-failure path as the Send button. If this long-lived
-    // callback belongs to session X but the same composer has since loaded Y,
-    // build and dispatch X's stashed draft explicitly — never touch Y's editor.
-    onSubmitDictation: transcript => {
-      if (submitBackgroundDictation(transcript, activeQueueSessionKey)) {
-        return
-      }
-
-      insertText(transcript)
-      submitDraft()
-    },
+    onSubmitDictation: handleSubmitDictation,
     onSubmit,
     onTranscribeAudio,
+    // Whose dictation this is, decided when the microphone opens rather than
+    // when the words come back: switching chats mid-sentence must not redirect
+    // what the user is already saying.
+    pinDictationTarget: () => ({ composerScope: activeQueueSessionKey, sessionId, storedSessionId }),
     sessionId,
     target: scope.target
   })

@@ -114,7 +114,7 @@ The current Desktop can connect to a remote backend. That does not make a render
 
 Ask before changing the managed checkout, quitting Hermes, or replacing the running app.
 
-On macOS, the in-app updater now resolves its update root, runs `hermes update --yes`, rebuilds with `hermes desktop --build-only`, and atomically swaps the rebuilt release bundle into the discovered running bundle when those paths differ. That automation is safe for this fork only after the managed checkout has the fork as `origin`, Nous as `upstream`, and the intended branch checked out; otherwise use the reviewed manual flow below.
+On macOS, in-app Update no longer runs inside the app. Desktop spawns the repo-owned hand-off `scripts/desktop-update/posix.sh` detached and quits; the script waits for the Electron process to exit, runs `hermes update --yes --gateway --branch <branch>` from the install root, transactionally swaps the rebuilt bundle into the running `.app` with `/usr/bin/ditto`, and reopens it. Because the script lives in the checkout, each update refreshes the code driving the next one. That automation is safe for this fork only after the managed checkout has the fork as `origin`, Nous as `upstream`, and the intended branch checked out; otherwise use the reviewed manual flow below.
 
 ### Preferred durable install
 

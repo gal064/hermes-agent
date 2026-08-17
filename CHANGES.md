@@ -15,7 +15,7 @@ This file lists only behavior this branch carries beyond `upstream`. Keep it sho
 - **Surface:** Desktop only; local Electron and remote-server directory listings retain their existing fixed-noise filtering, and server behavior is unchanged.
 - **Key files:** `apps/desktop/src/app/right-sidebar/files/ipc.ts`, `apps/desktop/src/app/right-sidebar/files/use-project-tree.ts`, and Desktop dependency metadata.
 - **Tests:** Focused Desktop file-tree tests prove ordinary dotfiles and generated files remain visible while the fixed exclusion set stays hidden.
-- **Upstream status:** Not present in the currently fetched `upstream/main` at `9deb0302c`; upstream still filters listings through `.gitignore` in `apps/desktop/src/app/right-sidebar/files/ipc.ts`.
+- **Upstream status:** Not present in the currently fetched `upstream/main` at `93ed11379b`; upstream still filters listings through `.gitignore` in `apps/desktop/src/app/right-sidebar/files/ipc.ts`.
 - **Remove when:** Upstream makes `.gitignore` independent from Desktop project-explorer visibility while preserving fixed-noise exclusions.
 
 ### Desktop dictation shortcut and automatic send
@@ -25,5 +25,5 @@ This file lists only behavior this branch carries beyond `upstream`. Keep it sho
 - **Surface:** Desktop only; the existing server transcription endpoint is unchanged.
 - **Key files:** `apps/desktop/src/lib/keybinds/actions.ts`, `apps/desktop/src/app/hooks/use-keybinds.ts`, and `apps/desktop/src/app/chat/composer/`.
 - **Tests:** Shortcut routing, tooltip discovery, delayed transcription, mic-open target pinning across a mid-recording session switch, background-session targeting, and cross-session draft restoration are covered by focused desktop tests.
-- **Upstream status:** Not present in the currently fetched `upstream/main` at `9deb0302c`; upstream has no `composer.dictation` keybind — only `composer.voice` (`ctrl+b` on macOS) — and its push-to-talk still routes the transcript into the draft via `insertText`.
+- **Upstream status:** Not present in the currently fetched `upstream/main` at `93ed11379b`; upstream has no `composer.dictation` keybind — only `composer.voice` (`ctrl+b` on macOS) — and its push-to-talk still routes the transcript into the draft via `insertText`.
 - **Remove when:** Upstream provides both a desktop dictation shortcut and automatic submission after transcription completes.

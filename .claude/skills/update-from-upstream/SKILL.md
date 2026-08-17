@@ -7,7 +7,20 @@ description: Update the current Hermes fork branch from Nous Research upstream, 
 
 Keep the fork current and as small as possible. Reconcile upstream, `CHANGES.md`, and the local Mac installation as one workflow.
 
-Invoking this skill authorizes its normal end-to-end workflow: push the reviewed current branch to the user's fork, update the managed checkout, quit Hermes, rebuild and replace its local Desktop bundle, relaunch it, and verify the deployment. If the user explicitly limits the scope, honor that limit. Never discard dirty work, force-push, change remotes, or touch a remote server without separate approval. Stay on the current branch unless asked otherwise.
+Invoking this skill authorizes its normal end-to-end workflow: commit every reviewed task-owned change, push the current branch to the user's fork, update the managed checkout, quit Hermes when it is running, rebuild and replace its local Desktop bundle, relaunch it, and verify the deployment. If the user explicitly limits the scope, honor that limit. Never discard dirty work, force-push, change remotes, or touch a remote server without separate approval. Stay on the current branch unless asked otherwise.
+
+## Completion contract
+
+Unless the user explicitly opts out of a step, a successful run is not complete until the skill has performed all of the following itself:
+
+1. committed every reviewed task-owned source, test, `CHANGES.md`, and skill update;
+2. pushed the resulting current-branch commit to the same-name branch on `origin` without force;
+3. fast-forwarded the managed checkout to that exact pushed commit;
+4. quit a running Hermes Desktop before rebuilding or replacing its live bundle;
+5. rebuilt and installed the local macOS Desktop app from the managed checkout;
+6. relaunched the exact installed bundle and verified its process path, clean install stamp, signature, and prior connection mode.
+
+Do not stop after merging, testing, committing, pushing, or building. Do not hand the user commands to finish the normal workflow. Finish the local installation and verification so the user has nothing else to do. A failed required check or an unsafe/ambiguous conflict is a blocker; do not push or deploy through it.
 
 ## 1. Preflight and topology
 
@@ -52,7 +65,7 @@ For every active `CHANGES.md` entry:
 
 ## 3. Integrate and maintain `CHANGES.md`
 
-Merge the fetched upstream default branch into the current branch by default. Ask before rebasing, force-pushing, or choosing between behaviorally different conflict resolutions. After validation, push the reviewed current branch to its same-name branch on `origin`; never force-push.
+Merge the fetched upstream default branch into the current branch by default. Ask before rebasing, force-pushing, or choosing between behaviorally different conflict resolutions. After validation, commit every reviewed task-owned change, including `CHANGES.md` and this skill when either changed, then push the current branch to its same-name branch on `origin`; never force-push.
 
 `CHANGES.md` contains only active differences from upstream. Every entry must concisely state:
 
@@ -98,7 +111,7 @@ Before pushing a Desktop change, prove the authoring worktree packages successfu
 uv run --no-sync ./hermes desktop --build-only --force-build
 ```
 
-This dirty-worktree artifact is build proof only, not the durable install. After tests and packaging pass, commit only the reviewed files and verify that every task-owned change is committed. Preserve and leave unstaged any unrelated dirty work; report that it prevented a globally clean worktree. Verify that `origin` is the user's fork and the authenticated GitHub viewer has write access, then push the current branch to the same-name branch on `origin` without force.
+This dirty-worktree artifact is build proof only, not the durable install. After tests and packaging pass, commit all and only the reviewed task-owned files and verify that no task-owned change remains uncommitted. Preserve and leave unstaged any unrelated dirty work; report that it prevented a globally clean worktree. Verify that `origin` is the user's fork and the authenticated GitHub viewer has write access, then push the current branch to the same-name branch on `origin` without force. Do not leave the commit or push for the user.
 
 Do not deploy a build that failed its required checks. Before a durable managed-checkout deployment, the tested commit must be available to that checkout.
 

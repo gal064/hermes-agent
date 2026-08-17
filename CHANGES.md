@@ -4,7 +4,7 @@ This file lists only behavior this branch carries beyond `upstream`. Keep it sho
 
 ## Fork maintenance
 
-- `.claude/skills/update-from-upstream/SKILL.md` defines upstream reconciliation, whole-range fork-delta auditing, `CHANGES.md` maintenance, managed-checkout setup, and signed local-Mac installation/verification. It must stay aligned with changes to the updater or deployment topology and has no runtime deploy surface.
+- `.claude/skills/update-from-upstream/SKILL.md` defines upstream reconciliation, whole-range fork-delta auditing, `CHANGES.md` maintenance, automatic reviewed-branch pushes, and a required quit/rebuild/install/verify cycle for the local Mac Desktop app only. It never deploys a server without a separate explicit request, must stay aligned with updater or deployment-topology changes, and has no runtime deploy surface.
 
 ## Active
 

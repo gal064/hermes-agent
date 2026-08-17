@@ -1,13 +1,13 @@
 ---
 name: update-from-upstream
-description: Update the current Hermes fork branch from Nous Research upstream, remove fork changes upstream now provides, maintain CHANGES.md, and optionally build, sign, install, and verify Hermes Desktop on this Mac.
+description: Update the current Hermes fork branch from Nous Research upstream, remove fork changes upstream now provides, maintain CHANGES.md, push the reviewed branch, and rebuild, install, and verify Hermes Desktop locally on this Mac.
 ---
 
 # Update from upstream
 
 Keep the fork current and as small as possible. Reconcile upstream, `CHANGES.md`, and the local Mac installation as one workflow.
 
-Never discard dirty work, push, change remotes, quit Hermes, replace an app, or touch a remote server without the user's approval. Stay on the current branch unless asked otherwise.
+Invoking this skill authorizes its normal end-to-end workflow: push the reviewed current branch to the user's fork, update the managed checkout, quit Hermes, rebuild and replace its local Desktop bundle, relaunch it, and verify the deployment. If the user explicitly limits the scope, honor that limit. Never discard dirty work, force-push, change remotes, or touch a remote server without separate approval. Stay on the current branch unless asked otherwise.
 
 ## 1. Preflight and topology
 
@@ -52,7 +52,7 @@ For every active `CHANGES.md` entry:
 
 ## 3. Integrate and maintain `CHANGES.md`
 
-Merge the fetched upstream default branch into the current branch by default. Ask before rebasing, force-pushing, or choosing between behaviorally different conflict resolutions. Never push unless explicitly asked.
+Merge the fetched upstream default branch into the current branch by default. Ask before rebasing, force-pushing, or choosing between behaviorally different conflict resolutions. After validation, push the reviewed current branch to its same-name branch on `origin`; never force-push.
 
 `CHANGES.md` contains only active differences from upstream. Every entry must concisely state:
 
@@ -98,21 +98,19 @@ Before pushing a Desktop change, prove the authoring worktree packages successfu
 uv run --no-sync ./hermes desktop --build-only --force-build
 ```
 
-This dirty-worktree artifact is build proof only, not the durable install. After tests and packaging pass, commit only the reviewed files, confirm the worktree is clean, and verify that `origin` is the user's fork and the authenticated GitHub viewer has write access before pushing. Never push without explicit approval.
+This dirty-worktree artifact is build proof only, not the durable install. After tests and packaging pass, commit only the reviewed files and verify that every task-owned change is committed. Preserve and leave unstaged any unrelated dirty work; report that it prevented a globally clean worktree. Verify that `origin` is the user's fork and the authenticated GitHub viewer has write access, then push the current branch to the same-name branch on `origin` without force.
 
 Do not deploy a build that failed its required checks. Before a durable managed-checkout deployment, the tested commit must be available to that checkout.
 
-## 5. Decide the deploy surface
+## 5. Deploy surface
 
-- `Desktop`: build and install the Electron app only. Do not update the remote backend.
-- `Server`: no desktop rebuild is required. Remote-server deployment is currently out of scope; ask before adding or executing one.
-- `Both`: install Desktop locally, then stop and ask for explicit remote-server instructions.
+In this skill, **deploy always means the local macOS Desktop app only**: build and install the Electron app on this Mac. Never update a connected remote backend or any server as part of this workflow. Server deployment is out of scope and requires a separate, explicit request.
 
-The current Desktop can connect to a remote backend. That does not make a renderer-only change a server deployment.
+The current Desktop can connect to a remote backend. Its connection mode does not expand deployment beyond the local app.
 
 ## 6. Install Hermes Desktop on this Mac
 
-Ask before changing the managed checkout, quitting Hermes, or replacing the running app.
+The skill invocation authorizes changing the managed checkout, quitting Hermes, and replacing the running app as part of the local Desktop deployment. Before quitting, tell the user that the active session may disconnect and state that work will continue through the deployment handoff. Do not leave the old process running while rebuilding or replacing its live bundle.
 
 On macOS, in-app Update no longer runs inside the app. Desktop spawns the repo-owned hand-off `scripts/desktop-update/posix.sh` detached and quits; the script waits for the Electron process to exit, runs `hermes update --yes --gateway --branch <branch>` from the install root, transactionally swaps the rebuilt bundle into the running `.app` with `/usr/bin/ditto`, and reopens it. Because the script lives in the checkout, each update refreshes the code driving the next one. That automation is safe for this fork only after the managed checkout has the fork as `origin`, Nous as `upstream`, and the intended branch checked out; otherwise use the reviewed manual flow below.
 
@@ -126,7 +124,7 @@ On macOS, in-app Update no longer runs inside the app. Desktop spawns the repo-o
    git -C ~/.hermes/hermes-agent pull --ff-only origin <branch>
    ```
 
-2. Quit Hermes before rebuilding its live bundle. If the current agent session is hosted by Hermes, warn that quitting may disconnect the session and agree on the handoff first.
+2. Quit Hermes before rebuilding its live bundle. If the current agent session is hosted by Hermes, warn that quitting may disconnect the session, state the handoff, and then proceed; invoking this skill already authorizes the quit.
 3. Build from the managed root so the app, backend/update root, and future in-app updates all resolve to the fork. Use the managed virtual environment (`.venv` first, then `venv`); do not invoke the root `./hermes` script with an arbitrary system Python:
 
    ```bash

@@ -340,3 +340,4 @@ class TestClarifyBatchNavigation:
         cli._clarify_batch_enter(state)
         thread.join(timeout=2)
         assert result["value"] == {"answers": {"q0": "red", "q1": "small"}}
+
